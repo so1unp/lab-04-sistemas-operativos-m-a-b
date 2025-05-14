@@ -9,30 +9,39 @@
 #include <pthread.h>
 #include <math.h>
 #include <semaphore.h>
+#include <fcntl.h>
 
-static void* producer(void*);
-static void* consumer(void*);
+// declara los semáforos
+sem_t *mutex;
+sem_t *vacios;
+sem_t *llenos;
 
-struct buffer {
+static void *producer(void *);
+static void *consumer(void *);
+
+struct buffer
+{
     int size;
-    int* buf;
+    int *buf;
 };
 
-struct params {
+struct params
+{
     int wait_prod;
     int wait_cons;
     int items;
-    struct buffer* buf;
+    struct buffer *buf;
 } params_t;
 
 /* Productor */
-static void* producer(void *p)
+static void *producer(void *p)
 {
     int i = 0;
 
-    struct params *params = (struct params*) p;
+    struct params *params = (struct params *)p;
 
-    for (i = 0; i < params->items; i++) {
+    for (i = 0; i < params->items; i++)
+    {
         params->buf->buf[i % params->buf->size] = i;
         // Espera una cantidad aleatoria de microsegundos.
         usleep(rand() % params->wait_prod);
@@ -42,23 +51,25 @@ static void* producer(void *p)
 }
 
 /* Consumidor */
-static void* consumer(void *p)
+static void *consumer(void *p)
 {
     int i;
 
-    struct params *params = (struct params*) p;
+    struct params *params = (struct params *)p;
 
     // Reserva memoria para guardar lo que lee el consumidor.
-    int *reader_results = (int*) malloc(sizeof(int)*params->items);
+    int *reader_results = (int *)malloc(sizeof(int) * params->items);
 
-    for (i = 0; i < params->items; i++) {
+    for (i = 0; i < params->items; i++)
+    {
         reader_results[i] = params->buf->buf[i % params->buf->size];
         // Espera una cantidad aleatoria de microsegundos.
         usleep(rand() % params->wait_cons);
     }
 
     // Imprime lo que leyo
-    for (i = 0; i < params->items; i++) {
+    for (i = 0; i < params->items; i++)
+    {
         printf("%d ", reader_results[i]);
     }
     printf("\n");
@@ -66,12 +77,13 @@ static void* consumer(void *p)
     pthread_exit(0);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     pthread_t producer_t, consumer_t;
 
     // Controla argumentos.
-    if (argc != 5) {
+    if (argc != 5)
+    {
         fprintf(stderr, "Uso: %s size items wait-prod wait-cons rand\n", argv[0]);
         fprintf(stderr, "\tsize:\ttamaño del buffer.\n");
         fprintf(stderr, "\titems:\tnúmero de items a producir/consumir.\n");
@@ -81,30 +93,34 @@ int main(int argc, char** argv)
     }
 
     struct buffer *buf;
-    buf = (struct buffer*) malloc(sizeof(struct buffer));
-    if (buf == NULL) {
+    buf = (struct buffer *)malloc(sizeof(struct buffer));
+    if (buf == NULL)
+    {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
 
     // Tamaño del buffer.
     buf->size = atoi(argv[1]);
-    if (buf->size <= 0) {
+    if (buf->size <= 0)
+    {
         fprintf(stderr, "bufsize tiene que ser mayor que cero.\n");
         exit(EXIT_FAILURE);
     }
 
     // Crea el buffer
-    buf->buf = (int*) malloc(sizeof(int) * buf->size);
-    if (buf->buf == NULL) {
+    buf->buf = (int *)malloc(sizeof(int) * buf->size);
+    if (buf->buf == NULL)
+    {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
 
     // Instancia una estructura de parámetros
     struct params *params;
-    params = (struct params*) malloc(sizeof(struct params));
-    if (params == NULL) {
+    params = (struct params *)malloc(sizeof(struct params));
+    if (params == NULL)
+    {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
@@ -113,25 +129,57 @@ int main(int argc, char** argv)
 
     // Cantidad de items a producir.
     params->items = atoi(argv[2]);
-    if (params->items <= 0) {
+    if (params->items <= 0)
+    {
         fprintf(stderr, "counter tiene que ser mayor que cero.\n");
         exit(EXIT_FAILURE);
     }
 
     params->wait_prod = atoi(argv[3]);
-    if (params->wait_prod <= 0) {
+    if (params->wait_prod <= 0)
+    {
         fprintf(stderr, "wait-prod tiene que ser mayor que cero.\n");
         exit(EXIT_FAILURE);
     }
 
     params->wait_cons = atoi(argv[4]);
-    if (params->wait_cons <= 0) {
+    if (params->wait_cons <= 0)
+    {
         fprintf(stderr, "cons-wait tiene que ser mayor que cero.\n");
         exit(EXIT_FAILURE);
     }
 
     // Inicializa semilla para números pseudo-aleatorios.
     srand(getpid());
+
+    /* Crea los semaforos */
+    if ((mutex = sem_open("Smutex", O_CREAT, 0644, 1)) == (sem_t *)-1)
+    {
+        perror("No se puede crear mutex");
+        exit(1);
+    }
+    printf("Mutex creado....\n");
+
+    if ((vacios = sem_open("Svacios", O_CREAT, 0644, 1)) == (sem_t *)-1)
+    {
+        perror("No se puede crear vacios");
+        exit(1);
+    }
+    // inicializa vacios = BUFFER_SIZE;
+    for (int i = 0; i < buf->size - 1; i++)
+    {
+        sem_post(vacios);
+    }
+    printf("Svacios creado....\n");
+
+    if ((llenos = sem_open("Sllenos", O_CREAT, 0644, 1)) == (sem_t *)-1)
+    {
+        perror("No se puede crear llenos");
+        exit(1);
+    }
+    // inicializa llenos = 0;
+    sem_wait(llenos);
+    printf("Sllenos creado....\n");
 
     // Crea productor y consumidor
     pthread_create(&producer_t, NULL, producer, params);
