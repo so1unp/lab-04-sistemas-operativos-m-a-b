@@ -26,6 +26,19 @@ const char *topic[M] = { "Espagueti!", "Vida", "El Ser", "Netflix", "La verdad" 
 int segs_piensa = 1;     // intervalo de pensamiento en [1, seg_piensa] segundos.
 int segs_come = 1;
 
+pthread_mutex_t *mutex[N];
+
+void initialize_sem() {
+    for (int i = 0; i < N; i++) {
+        mutex[i] = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+        if (mutex[i] == NULL) {
+            fprintf(stderr, "Error al asignar memoria para mutex[%d]\n", i);
+            exit(EXIT_FAILURE);
+        }
+        pthread_mutex_init(mutex[i], NULL);
+    }
+}
+
 // Mutex
 static pthread_mutex_t screen = PTHREAD_MUTEX_INITIALIZER;
 
@@ -60,7 +73,9 @@ void eat(int id)
         if (!i) {
             clear_eol(id);
 	    }
-
+        
+        pthread_mutex_lock(mutex[i]);
+        
         print(id, 18 + (f[i] != id) * 12, "tenedor%d", f[i]);
 
         // Espera para tomar el segundo tenedor.
@@ -72,6 +87,9 @@ void eat(int id)
         print(id, 40 + i * 4, "ñam");
         sleep(1 + (rand() % segs_come));
     }
+    pthread_mutex_unlock(mutex[f[0]]);
+    pthread_mutex_unlock(mutex[f[1]]);
+
 }
 
 // El filosofo piensa.
@@ -112,6 +130,8 @@ int main(int argc, char* argv[])
     int i;
     int id[N]; // id para cada filosofo.
     pthread_t tid[N]; 
+
+    initialize_sem();
 
     if (argc != 3) {
         fprintf(stderr, "Uso: %s segs-piensa segs-come\n", argv[0]);
