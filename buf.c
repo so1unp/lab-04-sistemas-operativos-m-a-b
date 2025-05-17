@@ -12,10 +12,9 @@
 #include <fcntl.h>
 
 // declara los semáforos
-pthread_mutex_t *mutex;
-pthread_mutexattr_t *mattr;
-sem_t *vacios;
-sem_t *llenos;
+pthread_mutex_t mutex;
+sem_t vacios;
+sem_t llenos;
 
 static void *producer(void *);
 static void *consumer(void *);
@@ -42,12 +41,12 @@ static void *producer(void *p)
     struct params *params = (struct params *)p;
 
     for (i = 0; i < params->items; i++)
-    {   
-        sem_wait(vacios);
-        pthread_mutex_lock(mutex);
+    {
+        sem_wait(&vacios);
+        pthread_mutex_lock(&mutex);
         params->buf->buf[i % params->buf->size] = i;
-        pthread_mutex_unlock(mutex);
-        sem_post(llenos);
+        pthread_mutex_unlock(&mutex);
+        sem_post(&llenos);
         // Espera una cantidad aleatoria de microsegundos.
         usleep(rand() % params->wait_prod);
     }
@@ -66,12 +65,12 @@ static void *consumer(void *p)
     int *reader_results = (int *)malloc(sizeof(int) * params->items);
 
     for (i = 0; i < params->items; i++)
-    {   
-        sem_wait(llenos);
-        pthread_mutex_lock(mutex);
+    {
+        sem_wait(&llenos);
+        pthread_mutex_lock(&mutex);
         reader_results[i] = params->buf->buf[i % params->buf->size];
-        pthread_mutex_unlock(mutex);
-        sem_post(vacios);
+        pthread_mutex_unlock(&mutex);
+        sem_post(&vacios);
         // Espera una cantidad aleatoria de microsegundos.
         usleep(rand() % params->wait_cons);
     }
@@ -161,32 +160,29 @@ int main(int argc, char **argv)
     // Inicializa semilla para números pseudo-aleatorios.
     srand(getpid());
 
-    
-    
-
     /* Crea el mutex */
-    if (pthread_mutex_init(&mutex, NULL) != 0) {
+    if (pthread_mutex_init(&mutex, NULL) != 0)
+    {
         perror("No se puede crear mutex");
         exit(1);
     }
     printf("Mutex creado....\n");
 
     /* Crea el vacíos */
-    if (sem_init(&vacios, 0, buf->size) == -1) {
+    if (sem_init(&vacios, 0, (unsigned int)buf->size) == -1)
+    {
         perror("No se puede crear vacios");
         exit(1);
     }
     printf("Svacios creado....\n");
 
     /* Crea el llenos */
-    if (sem_init(&llenos, 0, 0) == -1) {
+    if (sem_init(&llenos, 0, 0) == -1)
+    {
         perror("No se puede crear llenos");
         exit(1);
     }
     printf("Sllenos creado....\n");
-
-
-
 
     // Crea productor y consumidor
     pthread_create(&producer_t, NULL, producer, params);
@@ -194,7 +190,7 @@ int main(int argc, char **argv)
 
     // Mi trabajo ya esta hecho ...
     pthread_exit(NULL);
-    pthread_mutex_destroy(mutex);
-    sem_destroy(vacios);
-    sem_destroy(llenos);
+    pthread_mutex_destroy(&mutex);
+    sem_destroy(&vacios);
+    sem_destroy(&llenos);
 }
