@@ -64,8 +64,18 @@ void eat(int id)
     int ration, i;
 
     // los tenedores a tomar
-    f[0] = id;
-    f[1] = (id + 1) % N;
+    if (id % 2 == 0)
+    {
+        // Filósofo par toma tenedor derecho primero
+        f[0] = (id + 1) % N; // Tenedor derecho
+        f[1] = id;           // Tenedor izquierdo
+    }
+    else
+    {
+        // Filósofo impar toma tenedor izquierdo primero
+        f[0] = id;           // Tenedor izquierdo
+        f[1] = (id + 1) % N; // Tenedor derecho
+    }
 
     clear_eol(id);
     print(id, 18, "..oO (necesito tenedores)");
