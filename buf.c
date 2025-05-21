@@ -166,7 +166,6 @@ int main(int argc, char **argv)
         perror("No se puede crear mutex");
         exit(1);
     }
-    printf("Mutex creado....\n");
 
     /* Crea el vacíos */
     if (sem_init(&vacios, 0, (unsigned int)buf->size) == -1)
@@ -174,7 +173,6 @@ int main(int argc, char **argv)
         perror("No se puede crear vacios");
         exit(1);
     }
-    printf("Svacios creado....\n");
 
     /* Crea el llenos */
     if (sem_init(&llenos, 0, 0) == -1)
@@ -182,7 +180,6 @@ int main(int argc, char **argv)
         perror("No se puede crear llenos");
         exit(1);
     }
-    printf("Sllenos creado....\n");
 
     // Crea productor y consumidor
     pthread_create(&producer_t, NULL, producer, params);
