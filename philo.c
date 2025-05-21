@@ -101,7 +101,7 @@ void eat(int id)
     for (i = 0, ration = 3 + rand() % 8; i < ration; i++)
     {
         print(id, 40 + i * 4, "ñam");
-        sleep(1 + (rand() % segs_come));
+        sleep(1 + (unsigned int)(rand() % segs_come));
     }
     pthread_mutex_unlock(mutex[f[0]]);
     pthread_mutex_unlock(mutex[f[1]]);
@@ -128,7 +128,7 @@ void think(int id)
                 sleep(1);
         }
 
-        sleep(1 + rand() % segs_piensa);
+        sleep(1 + (unsigned int)(rand() % segs_piensa));
     } while (t);
 }
 
@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    srand(getpid());
+    srand((unsigned int)getpid());
 
     clear();
 
