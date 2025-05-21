@@ -48,7 +48,7 @@ static void *producer(void *p)
         pthread_mutex_unlock(&mutex);
         sem_post(&llenos);
         // Espera una cantidad aleatoria de microsegundos.
-        usleep(rand() % params->wait_prod);
+        usleep((unsigned int)(rand() % params->wait_prod));
     }
 
     pthread_exit(0);
@@ -62,7 +62,7 @@ static void *consumer(void *p)
     struct params *params = (struct params *)p;
 
     // Reserva memoria para guardar lo que lee el consumidor.
-    int *reader_results = (int *)malloc(sizeof(int) * params->items);
+    int *reader_results = (int *)malloc(sizeof(int) * (size_t)params->items);
 
     for (i = 0; i < params->items; i++)
     {
@@ -72,7 +72,7 @@ static void *consumer(void *p)
         pthread_mutex_unlock(&mutex);
         sem_post(&vacios);
         // Espera una cantidad aleatoria de microsegundos.
-        usleep(rand() % params->wait_cons);
+        usleep((unsigned int)(rand() % params->wait_cons));
     }
 
     // Imprime lo que leyo
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
     }
 
     // Crea el buffer
-    buf->buf = (int *)malloc(sizeof(int) * buf->size);
+    buf->buf = (int *)malloc(sizeof(int) * (size_t)buf->size);
     if (buf->buf == NULL)
     {
         perror("malloc");
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
     }
 
     // Inicializa semilla para números pseudo-aleatorios.
-    srand(getpid());
+    srand((unsigned int)getpid());
 
     /* Crea el mutex */
     if (pthread_mutex_init(&mutex, NULL) != 0)
