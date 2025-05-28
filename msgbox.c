@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#define USERNAME_MAXSIZE 20 // Máximo tamaño en caracteres del nombre del remitente.
+#define USERNAME_MAXSIZE 30 // Máximo tamaño en caracteres del nombre del remitente.
 #define TXT_SIZE 100        // Máximo tamaño del texto del mensaje.
 
 mqd_t open_mailbox(char *queue, int mode);
@@ -38,6 +38,7 @@ void usage(char *argv[])
     fprintf(stderr, "\t-l queue: vigila por mensajes en queue.\n");
     fprintf(stderr, "\t-c queue: crea una cola de mensaje queue.\n");
     fprintf(stderr, "\t-d queue: elimina la cola de mensajes queue.\n");
+    fprintf(stderr, "\t-i queue: imprime información de la cola de mensajes queue.\n");
     fprintf(stderr, "\t-h imprime este mensaje.\n");
 }
 
@@ -62,6 +63,7 @@ int main(int argc, char *argv[])
 
     switch (option)
     {
+    // ---- Enviar un mensaje ----
     case 's':
         printf("Enviar %s a la cola %s\n", argv[3], argv[2]);
 
@@ -84,10 +86,9 @@ int main(int argc, char *argv[])
         // Enviar el mensaje
         mq_send(queue, (const char *)&msg1, sizeof(msg1), 0);
 
-        // Cerrar la cola de mensajes
-        mq_close(queue);
         break;
 
+    // ---- Recibir un mensaje ----
     case 'r':
         printf("Recibe el primer mensaje en %s\n", argv[2]);
 
@@ -101,30 +102,109 @@ int main(int argc, char *argv[])
         mq_receive(queue, (char *)&msg2, sizeof(msg2), NULL);
 
         printf("%s: %s\n", msg2.sender, msg2.text);
-        mq_close(queue);
+
         break;
+
+    // ---- Imprimir todos los mensajes ----
     case 'a':
-        printf("Imprimer todos los mensajes en %s\n", argv[2]);
+        printf("Imprimir todos los mensajes en %s\n", argv[2]);
+
+        // Abrir la cola de mensajes
+        queue = open_mailbox(argv[2], O_RDONLY);
+
+        // Obtener atributos de la cola para saber cuántos mensajes hay
+        struct mq_attr attr;
+        mq_getattr(queue, &attr);
+
+        printf("Mensajes en la cola (%ld):\n", attr.mq_curmsgs);
+
+        // Leer todos los mensajes disponibles
+        for (int i = 0; i < attr.mq_curmsgs; i++)
+        {
+            struct msg msg_temp;
+            memset(&msg_temp, 0, sizeof(msg_temp));
+
+            if (mq_receive(queue, (char *)&msg_temp, sizeof(msg_temp), NULL) != -1)
+            {
+                printf("%s: %s\n", msg_temp.sender, msg_temp.text);
+            }
+        }
         break;
+
+    // ---- Escuchar mensajes ----
     case 'l':
-        printf("Escucha indefinidamente por mensajes\n");
+        printf("Escucha indefinidamente por mensajes en %s\n", argv[2]);
+
+        // Abrir la cola de mensajes
+        queue = open_mailbox(argv[2], O_RDONLY);
+
+        printf("Esperando mensajes... (Ctrl+C para salir)\n");
+
+        // Loop infinito para escuchar mensajes
+        while (1)
+        {
+            struct msg msg_listen;
+            memset(&msg_listen, 0, sizeof(msg_listen));
+
+            // Recibir mensaje (bloquea hasta que llegue uno)
+            if (mq_receive(queue, (char *)&msg_listen, sizeof(msg_listen), NULL) != -1)
+            {
+                printf("Nuevo mensaje de %s: %s\n", msg_listen.sender, msg_listen.text);
+            }
+        }
         break;
+
+    // ---- Crear cola ----
     case 'c':
         printf("Crea la cola de mensajes %s\n", argv[2]);
         // Crear la cola de mensajes
         open_mailbox(argv[2], O_CREAT);
         break;
+
+    // ---- Eliminar cola ----
     case 'd':
         printf("Borra la cola de mensajes %s\n", argv[2]);
         // Eliminar la cola de mensajes
         mq_unlink(argv[2]);
         break;
+
+    // ---- Imprimir información de la cola ----
+    case 'i':
+        printf("Imprimir información de la cola de mensajes %s\n", argv[2]);
+
+        // Abrir la cola de mensajes
+        queue = open_mailbox(argv[2], O_RDONLY);
+
+        // Obtener atributos de la cola
+        struct mq_attr attr_info;
+        if (mq_getattr(queue, &attr_info) == 0)
+        {
+            printf("Atributos de la cola %s:\n", argv[2]);
+            printf("  mq_flags: %ld\n", attr_info.mq_flags);
+            printf("  mq_maxmsg: %ld\n", attr_info.mq_maxmsg);
+            printf("  mq_msgsize: %ld\n", attr_info.mq_msgsize);
+            printf("  mq_curmsgs: %ld\n", attr_info.mq_curmsgs);
+        }
+        else
+        {
+            perror("Error al obtener atributos de la cola");
+        }
+        break;
+
+    // ---- Mostrar uso del programa ----
     case 'h':
         usage(argv);
         break;
+
     default:
         fprintf(stderr, "Comando desconocido: %s\n", argv[1]);
         exit(EXIT_FAILURE);
+    }
+
+    // Cerrar la cola de mensajes (solo si fue abierta)
+    if (option != 'd' && option != 'h')
+    {
+        mq_close(queue);
     }
 
     exit(EXIT_SUCCESS);
@@ -137,5 +217,16 @@ int main(int argc, char *argv[])
  */
 mqd_t open_mailbox(char *queue, int mode)
 {
+    // Para crear una cola se necesitan más flags
+    if (mode & O_CREAT)
+    {
+        struct mq_attr attr;
+        attr.mq_flags = 0;               // sin flags especiales
+        attr.mq_maxmsg = 10;             // máximo 10 mensajes
+        attr.mq_msgsize = sizeof(msg_t); // tamaño de cada mensaje
+        attr.mq_curmsgs = 0;             // número actual de mensajes (inicialmente 0)
+
+        return mq_open(queue, O_CREAT | O_RDWR, 0664, &attr);
+    }
     return mq_open(queue, mode, 0664, NULL);
 }
